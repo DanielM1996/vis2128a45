@@ -120,7 +120,7 @@ chelsea_greenspaces <- oe_read(chelsea_file$url,
                   download_directory = "networks",
                   layer = "points",
                   quiet = TRUE) %>%
-  filter(str_detect(other_tags, '"leaisure"=>"park"')) %>%
+  filter(str_detect(other_tags, '"leisure"=>"park"')) %>%
   st_transform(crs = MA_state_plane) %>%
   st_filter(chelsea) %>% 
   rename(id = osm_id)
@@ -266,7 +266,23 @@ ggplot(chelsea_streets) +
 
 
 ```{r cars}
-r5r_core <- setup_r5("networks", verbose = FALSE)
+chelsea_transit <- read_gtfs(file.path("networks","Bostongtfs.zip"))
+
+chelsea_transit_stops <- st_as_sf(chelsea_transit$stops %>% 
+                                    drop_na(c("stop_lat", "stop_lon")), 
+                          coords = c("stop_lon", "stop_lat"), 
+                          crs =st_crs(grid))
+
+chelsea_transit_grid <- grid %>%
+  mutate(num_stops = lengths(st_covers(grid, chelsea_transit_stops)))
+
+chelsea_transit_points <- st_centroid(chelsea_transit_grid)
+
+ggplot(chelsea_transit_points) +
+  geom_sf(aes(color = as.character(num_stops))) +
+  scale_color_manual(values = c("gray", "cornsilk", "lightgreen"), 
+                    name = "Number of\ntransit stops") +
+  theme_void()
 ```
 
 
