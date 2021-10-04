@@ -25,6 +25,7 @@ library(ggspatial)
 library(tigris)
 library(wesanderson)
 library(tidytransit)
+library(stars)
 ```
 
 ## Download File
@@ -86,7 +87,7 @@ ggplot(chelsea) +
 
 
 ```{r cars}
-MA_state_plane <- "+proj=lcc +lat_1=41.71666666666667 +lat_2=42.68333333333333 +lat_0=41 +lon_0=-71.5 +x_0=200000 +y_0=750000 +ellps=GRS80 +units=m +no_defs"
+MA_state_plane <- "+proj=lcc +lat_1=42.68333333333333 +lat_2=41.71666666666667 +lat_0=41 +lon_0=-71.5 +x_0=200000 +y_0=750000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
 
 chelsea_streets <- chelsea_streets %>%
   st_transform(MA_state_plane)
@@ -252,14 +253,28 @@ ggplot(chelsea_streets) +
   scale_fill_manual(values = c(iso_pallete[1], 
                                iso_pallete[3],
                                iso_pallete[5]),
-        name = "Transit Travel\ntime to the\nnearest school\n(minutes)") +
+        name = "Transit Travel\ntime to the\nnearest green space\n(minutes)") +
   coord_sf(crs = MA_state_plane) +
   theme_map()
 ```
 
 
 
+```{r}
+ggplot(chelsea_transit_stops) +
+  geom_sf()
+```
 
+```{r}
+ggplot(chelsea_transit_grid) +
+  geom_sf()
+```
+
+
+```{r}
+ggplot(grid_points) +
+  geom_sf()
+```
 
 ## Calculating Accesibility
 
@@ -270,8 +285,8 @@ chelsea_transit <- read_gtfs(file.path("networks","Bostongtfs.zip"))
 
 chelsea_transit_stops <- st_as_sf(chelsea_transit$stops %>% 
                                     drop_na(c("stop_lat", "stop_lon")), 
-                          coords = c("stop_lon", "stop_lat"), 
-                          crs =st_crs(grid))
+                          coords = c("stop_lon", "stop_lat")) %>% 
+                          st_transform(crs = st_crs(grid_points))
 
 chelsea_transit_grid <- grid %>%
   mutate(num_stops = lengths(st_covers(grid, chelsea_transit_stops)))
@@ -281,15 +296,68 @@ chelsea_transit_points <- st_centroid(chelsea_transit_grid)
 ggplot(chelsea_transit_points) +
   geom_sf(aes(color = as.character(num_stops))) +
   scale_color_manual(values = c("gray", "cornsilk", "lightgreen"), 
-                    name = "Number of\ntransit stops") +
-  theme_void()
+                    name = "Number of\ntransit stops")
 ```
 
 
 
+```{r}
+chelsea_transit_access <- accessibility(r5r_core,
+                        origins = chelsea_transit_points,
+                        destinations = chelsea_transit_points,
+                        mode = "WALK",
+                        opportunities_colname = "num_stops",
+                        decay_function = "step",
+                        cutoffs = 11,
+                        departure_datetime = as.POSIXct("15-11-2021 14:00:00",
+                                 format = "%d-%m-%Y %H:%M:%S"),
+                        max_walk_dist = 500,
+                        time_window = 60,
+                        percentiles = 50,
+                        verbose = FALSE) %>%
+  mutate(id = as.numeric(from_id)) %>%
+  merge(grid)
+
+st_geometry(chelsea_transit_access) <- "geometry"
+
+ggplot(chelsea_transit_access) +
+  geom_sf(aes(fill = accessibility), color = NA) +
+  scale_fill_viridis_c(name = "Transit stops\nwithin 10-minutes\nwalk") +
+  coord_sf(crs = MA_state_plane) +
+  theme_void()
+```
 
 
+```{r}
+chelsea_transit_access2 <- accessibility(r5r_core,
+                        origins = chelsea_transit_points,
+                        destinations = chelsea_transit_points,
+                        mode = "WALK",
+                        opportunities_colname = "num_stops",
+                        decay_function = "exponential",
+                        cutoffs = 5,
+                        departure_datetime = as.POSIXct("15-11-2021 14:00:00",
+                                 format = "%d-%m-%Y %H:%M:%S"),
+                        max_walk_dist = 500,
+                        time_window = 60,
+                        percentiles = 50,
+                        verbose = FALSE) %>%
+  mutate(id = as.numeric(from_id)) %>%
+  merge(grid)
 
+st_geometry(chelsea_transit_access2) <- "geometry"
+
+ggplot(chelsea_transit_access2) +
+  geom_sf(aes(fill = accessibility), color = NA) +
+  scale_fill_viridis_c(name = "Accessiblity score") +
+  coord_sf(crs = MA_state_plane) +
+  theme_void()
+```
+
+
+```{r}
+stop_r5(r5r_core)
+```
 
 
 
