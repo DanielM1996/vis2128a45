@@ -323,8 +323,8 @@ ggplot(chelsea_transit_points) +
 
 ```{r}
 chelsea_transit_access <- accessibility(r5r_core,
-                        origins = chelsea_transit_points,
-                        destinations = chelsea_transit_points,
+                        origins = st_transform(chelsea_transit_points, crs="WGS84"),
+                        destinations = st_transform(chelsea_transit_points, crs="WGS84"),
                         mode = "WALK",
                         opportunities_colname = "num_stops",
                         decay_function = "step",
@@ -351,8 +351,8 @@ ggplot(chelsea_transit_access) +
 
 ```{r}
 chelsea_transit_access2 <- accessibility(r5r_core,
-                        origins = chelsea_transit_points,
-                        destinations = chelsea_transit_points,
+                        origins = st_transform(chelsea_transit_points, crs="WGS84"),
+                        destinations = st_transform(chelsea_transit_points, crs="WGS84"),
                         mode = "WALK",
                         opportunities_colname = "num_stops",
                         decay_function = "exponential",
@@ -381,15 +381,106 @@ stop_r5(r5r_core)
 ```
 
 
+```{r}
+rJava::.jgc(R.gc = TRUE)
+```
 
 
 
+```{r}
+st_write(chelsea_transit_access2, 'chelsea_access.geojson', append=FALSE, quiet=TRUE )
+```
+
+
+## Creating a raster layer from a polygon layer
+
+
+```{r}
+access_poly <- st_read("chelsea_access.geojson", quiet=TRUE)
+
+access_raster <- st_rasterize(access_poly["accessibility"], 
+                              nx = 100, ny = 100) 
+plot(access_raster)
+```
 
 
 
+```{r}
+
+
+ggplot(chelsea_streets) +
+  geom_stars(data = access_raster) +
+  geom_sf(color = "white", alpha = 0.2) +
+  scale_fill_viridis_c(na.value = NA, 
+                       option="A",
+                       name = "Pedestrian access to\ntransit stops") +
+  theme_void()
+
+```
 
 
 
+```{r}
+chelsea_streets <- chelsea_streets %>%
+  st_transform(crs = MA_state_plane)
 
+access_points <- st_as_sf(access_raster, as_points = TRUE)
+
+ggplot() +
+  geom_sf(data = access_points, aes(color = accessibility), size = 0.1) +
+  scale_color_viridis_c(na.value = NA, 
+                       option="A",
+                       name = "Pedestrian access to\ntransit stops") +
+  theme_void()
+```
+
+
+
+```{r}
+access_points <- st_as_sf(access_raster, as_points = TRUE,
+                          coords = c("stop_lon", "stop_lat")) %>%
+                          st_set_crs("+proj=longlat +ellps=GRS80") %>%
+  st_transform("+proj=lcc +lat_1=42.68333333333333 +lat_2=41.71666666666667 +lat_0=41 +lon_0=-71.5 +x_0=200000 +y_0=750000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs")
+
+ggplot(chelsea_streets) +
+  geom_sf(data = access_points, aes(color = accessibility), size = 0.1) +
+  coord_sf(default_crs = NULL) +
+  scale_color_viridis_c(na.value = NA, 
+                       option="A",
+                       name = "Pedestrian access to\ntransit stops") +
+  theme_void()
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+access_poly2 <- st_as_sf(access_raster, as_points = FALSE, merge = TRUE)
+
+ggplot(chelsea_streets) +
+  geom_sf(data = access_poly2, aes(fill = accessibility), color = 'gray') +
+  scale_fill_viridis_c(na.value = NA, 
+                       option="A",
+                       name = "Pedestrian access to\ntransit stops") +
+  theme_void()
+```
+
+
+```{r}
+access_contours <- st_contour(access_raster, contour_lines = TRUE, 
+                              breaks = c(0,2,4,6,8))
+
+ggplot(chelsea_streets) +
+  geom_sf(color = "gray") +
+  geom_sf(data = access_contours, aes(color = accessibility), fill = NA) +
+  scale_color_viridis_c(na.value = NA, 
+                       option="A",
+                       breaks = c(0,2,4,6,8),
+                       name = "Pedestrian access to\ntransit stops") +
+  theme_void()
+```
 
 
