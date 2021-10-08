@@ -340,6 +340,9 @@ chelsea_transit_access <- accessibility(r5r_core,
 
 st_geometry(chelsea_transit_access) <- "geometry"
 
+chelsea_transit_access <- chelsea_transit_access %>%
+  st_transform(crs = "WGS84")
+
 ggplot(chelsea_transit_access) +
   geom_sf(aes(fill = accessibility), color = NA) +
   scale_fill_viridis_c(name = "Transit stops\nwithin 10-minutes\nwalk") +
@@ -368,6 +371,9 @@ chelsea_transit_access2 <- accessibility(r5r_core,
 
 st_geometry(chelsea_transit_access2) <- "geometry"
 
+chelsea_transit_access2 <- chelsea_transit_access2 %>%
+  st_transform(crs = "WGS84")
+
 ggplot(chelsea_transit_access2) +
   geom_sf(aes(fill = accessibility), color = NA) +
   scale_fill_viridis_c(name = "Accessiblity score") +
@@ -388,7 +394,7 @@ rJava::.jgc(R.gc = TRUE)
 
 
 ```{r}
-st_write(chelsea_transit_access2, 'chelsea_access.geojson', append=FALSE, quiet=TRUE )
+st_write(chelsea_transit_access, 'chelsea_access.geojson', append=FALSE, quiet=TRUE )
 ```
 
 
@@ -410,7 +416,7 @@ plot(access_raster)
 
 ggplot(chelsea_streets) +
   geom_stars(data = access_raster) +
-  geom_sf(color = "white", alpha = 0.2) +
+  geom_sf(color = "white", alpha = 1.2) +
   scale_fill_viridis_c(na.value = NA, 
                        option="A",
                        name = "Pedestrian access to\ntransit stops") +
